@@ -278,14 +278,12 @@ REGISTER_CALCULATOR(TfLiteTensorsToSegmentationCalculator);
   float* tensor_mat_ptr = tensor_mat.ptr<float>();
   memcpy(tensor_mat_ptr, raw_input_data, raw_input_tensor->bytes);
 
-  // Process mask tensor.
-  // Run softmax over tensor output and blend with previous mask.
   for (int i = 0; i < tensor_height_; ++i) {
     for (int j = 0; j < tensor_width_; ++j) {
       const cv::Vec3f input_pix = tensor_mat.at<cv::Vec3f>(i, j);
-      const uchar r = static_cast<uchar>(input_pix[0] * 255);
-      const uchar g = static_cast<uchar>(input_pix[1] * 255);
-      const uchar b = static_cast<uchar>(input_pix[2] * 255);
+      const uchar r = static_cast<uchar>((input_pix[0] + 1.0) * 127.5);
+      const uchar g = static_cast<uchar>((input_pix[1] + 1.0) * 127.5);
+      const uchar b = static_cast<uchar>((input_pix[2] + 1.0) * 127.5);
       const cv::Vec4b out_value = {r, g, b, 255};
 
       small_mask_mat.at<cv::Vec4b>(i, j) = out_value;
