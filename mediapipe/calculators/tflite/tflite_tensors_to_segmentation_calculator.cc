@@ -262,37 +262,13 @@ REGISTER_CALCULATOR(TfLiteTensorsToSegmentationCalculator);
   // Get input streams.
   const auto& input_tensors =
       cc->Inputs().Tag("TENSORS").Get<std::vector<TfLiteTensor>>();
-  const bool has_prev_mask = cc->Inputs().HasTag("PREV_MASK") &&
-                             !cc->Inputs().Tag("PREV_MASK").IsEmpty();
   const ImageFrame placeholder;
-  const auto& input_mask = has_prev_mask
-                               ? cc->Inputs().Tag("PREV_MASK").Get<ImageFrame>()
-                               : placeholder;
   int output_width = tensor_width_, output_height = tensor_height_;
-  if (cc->Inputs().HasTag("REFERENCE_IMAGE")) {
-    const auto& input_image =
-        cc->Inputs().Tag("REFERENCE_IMAGE").Get<ImageFrame>();
-    output_width = input_image.Width();
-    output_height = input_image.Height();
-  }
+
   RET_CHECK_EQ(input_tensors.size(), 1);
 
   // Create initial working mask.
   cv::Mat small_mask_mat(cv::Size(tensor_width_, tensor_height_), CV_8UC4);
-
-  // Get input previous mask.
-  cv::Mat input_mask_mat;
-  if (has_prev_mask) {
-    cv::Mat temp_mask_mat = formats::MatView(&input_mask);
-    if (temp_mask_mat.channels() != 4) {
-      cv::Mat converted_mat;
-      cv::cvtColor(temp_mask_mat, converted_mat,
-                   temp_mask_mat.channels() == 1 ? cv::COLOR_GRAY2RGBA
-                                                 : cv::COLOR_RGB2RGBA);
-      temp_mask_mat = converted_mat.clone();
-    }
-    cv::resize(temp_mask_mat, input_mask_mat, small_mask_mat.size());
-  }
 
   // Copy input tensor.
   const TfLiteTensor* raw_input_tensor = &input_tensors[0];
@@ -304,45 +280,17 @@ REGISTER_CALCULATOR(TfLiteTensorsToSegmentationCalculator);
 
   // Process mask tensor.
   // Run softmax over tensor output and blend with previous mask.
-  const int output_layer_index = options_.output_layer_index();
-  const float combine_with_prev_ratio = options_.combine_with_previous_ratio();
   for (int i = 0; i < tensor_height_; ++i) {
     for (int j = 0; j < tensor_width_; ++j) {
-      // Only two channel input tensor is supported.
-      const cv::Vec2f input_pix = tensor_mat.at<cv::Vec2f>(i, j);
-      const float shift = std::max(input_pix[0], input_pix[1]);
-      const float softmax_denom =
-          std::exp(input_pix[0] - shift) + std::exp(input_pix[1] - shift);
-      float new_mask_value =
-          std::exp(input_pix[output_layer_index] - shift) / softmax_denom;
-      // Combine previous value with current using uncertainty^2 as mixing coeff
-      if (has_prev_mask) {
-        const float prev_mask_value =
-            input_mask_mat.at<cv::Vec4b>(i, j)[0] / 255.0f;
-        const float eps = 0.001;
-        float uncertainty_alpha =
-            1.0 +
-            (new_mask_value * std::log(new_mask_value + eps) +
-             (1.0 - new_mask_value) * std::log(1.0 - new_mask_value + eps)) /
-                std::log(2.0f);
-        uncertainty_alpha = Clamp(uncertainty_alpha, 0.0f, 1.0f);
-        // Equivalent to: a = 1 - (1 - a) * (1 - a);  (squaring the uncertainty)
-        uncertainty_alpha *= 2.0 - uncertainty_alpha;
-        const float mixed_mask_value =
-            new_mask_value * uncertainty_alpha +
-            prev_mask_value * (1.0f - uncertainty_alpha);
-        new_mask_value = mixed_mask_value * combine_with_prev_ratio +
-                         (1.0f - combine_with_prev_ratio) * new_mask_value;
-      }
-      const uchar mask_value = static_cast<uchar>(new_mask_value * 255);
-      // Set both R and A channels for convenience.
-      const cv::Vec4b out_value = {mask_value, 0, 0, mask_value};
+      const cv::Vec3f input_pix = tensor_mat.at<cv::Vec3f>(i, j);
+      const uchar r = static_cast<uchar>(input_pix[0] * 255);
+      const uchar g = static_cast<uchar>(input_pix[1] * 255);
+      const uchar b = static_cast<uchar>(input_pix[2] * 255);
+      const cv::Vec4b out_value = {r, g, b, 255};
+
       small_mask_mat.at<cv::Vec4b>(i, j) = out_value;
     }
   }
-
-  if (options_.flip_vertically()) cv::flip(small_mask_mat, small_mask_mat, 0);
-
   // Upsample small mask into output.
   cv::Mat large_mask_mat;
   cv::resize(small_mask_mat, large_mask_mat,
@@ -517,8 +465,8 @@ void TfLiteTensorsToSegmentationCalculator::GlRender() {
   tensor_width_ = options_.tensor_width();
   tensor_height_ = options_.tensor_height();
   tensor_channels_ = options_.tensor_channels();
-  RET_CHECK_EQ(tensor_channels_, 2)
-      << "Only 2 channel segmentation tensor currently supported";
+  // RET_CHECK_EQ(tensor_channels_, 2)
+  //    << "Only 2 channel segmentation tensor currently supported";
 
   return ::mediapipe::OkStatus();
 }
