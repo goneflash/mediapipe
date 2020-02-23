@@ -19,7 +19,7 @@ package(default_visibility = ["//mediapipe/examples:__subpackages__"])
 cc_binary(
     name = "face_detection_cpu",
     deps = [
-        "//mediapipe/examples/desktop:demo_run_graph_main",
+        "//mediapipe/examples/desktop:simple_run_graph_main",
         "//mediapipe/graphs/face_detection:desktop_tflite_calculators",
     ],
 )

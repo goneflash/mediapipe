@@ -17,6 +17,19 @@ licenses(["notice"])  # Apache 2.0
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "desktop_offline_calculators",
+    deps = [
+        "//mediapipe/calculators/core:flow_limiter_calculator",
+        "//mediapipe/calculators/core:gate_calculator",
+        "//mediapipe/calculators/core:immediate_mux_calculator",
+        "//mediapipe/calculators/core:packet_inner_join_calculator",
+        "//mediapipe/calculators/core:previous_loopback_calculator",
+        "//mediapipe/calculators/video:opencv_video_decoder_calculator",
+        "//mediapipe/calculators/video:opencv_video_encoder_calculator",
+    ],
+)
+
+cc_library(
     name = "mobile_calculators",
     deps = [
         "//mediapipe/calculators/core:flow_limiter_calculator",
@@ -38,7 +51,10 @@ cc_library(
 cc_library(
     name = "desktop_tflite_calculators",
     deps = [
+        ":desktop_offline_calculators",
         "//mediapipe/calculators/core:flow_limiter_calculator",
+        "//mediapipe/calculators/image:image_cropping_calculator",
+        "//mediapipe/calculators/image:image_properties_calculator",
         "//mediapipe/calculators/image:image_transformation_calculator",
         "//mediapipe/calculators/tflite:ssd_anchors_calculator",
         "//mediapipe/calculators/tflite:tflite_converter_calculator",
@@ -48,7 +64,9 @@ cc_library(
         "//mediapipe/calculators/util:detection_label_id_to_text_calculator",
         "//mediapipe/calculators/util:detection_letterbox_removal_calculator",
         "//mediapipe/calculators/util:detections_to_render_data_calculator",
+        "//mediapipe/calculators/util:detections_to_rects_calculator",
         "//mediapipe/calculators/util:non_max_suppression_calculator",
+        "//mediapipe/calculators/util:rect_transformation_calculator",
     ],
 )
 
